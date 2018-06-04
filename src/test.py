@@ -1,13 +1,22 @@
 # encoding=utf-8
 import jieba
+from keras.models import Sequential
+from keras.layers import Dense, Activation
+from keras.optimizers import Adam
+import numpy as np
+import pandas as pd
+import sys
 
-X = [467, 464, 804, 983, 768]
-maxlen = 10
-if len(X) >= maxlen:
-    X = X[:maxlen]
-else:
-    temp = [0] * (maxlen - len(X))
-    X = temp + X
+f = open('../data/StopWords_con.txt', 'r')
 
-print X
+w = set()
 
+
+for lines in f:
+    arr = lines.split('\n')
+    # print type(arr[0].decode('utf-8'))
+    w.add(arr[0].decode('utf-8'))
+
+a = (u'现在' in w)
+
+print a
