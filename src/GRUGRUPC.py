@@ -238,11 +238,9 @@ X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2
 
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
-sen2vec = GRU(sent_size, activation='tanh', return_sequences=True,
-              kernel_regularizer=regularizers.l2(0.1))(model_input)
-sen2vec = Dropout(0.25)(sen2vec)
-ses2vec = GRU(sess_size, activation='tanh', return_sequences=False,
-              kernel_regularizer=regularizers.l2(0.1))(sen2vec)
+sen2vec = GRU(sent_size, activation='tanh', return_sequences=True)(model_input)
+# sen2vec = Dropout(0.25)(sen2vec)
+ses2vec = GRU(sess_size, activation='tanh', return_sequences=False)(sen2vec)
 model_output = Dense(len(tags2ids), activation='softmax')(ses2vec)
 # model_output = Dense(1)(sess2vec)
 model = Model(inputs=model_input, outputs=model_output)
@@ -250,7 +248,7 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
 print 'end training!'
 print 'save model!'
-model.save('GRUGRUPC_model.h5')
+model.save('../model/GRUGRUPC_model.h5')
 print 'save model down!'
 
 print 'predicting...'

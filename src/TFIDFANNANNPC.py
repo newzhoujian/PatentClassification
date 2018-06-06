@@ -9,6 +9,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import lightgbm as lgb
 import random
 from sklearn.model_selection import train_test_split
+from keras.layers import Dense, Embedding, LSTM, TimeDistributed, Input, Bidirectional, GRU, recurrent, Reshape, Dropout
+from keras.models import Model
+from keras import regularizers
+
 from sklearn.decomposition import PCA
 
 f = pd.read_excel('../data/1000.xlsx', header=0)
@@ -153,64 +157,83 @@ def get_y():
         tags.add(i[0])
 
     tags2ids = {}
-    ids2tags = {}
+
     cnt = 0
     for i in tags:
         tags2ids[i] = cnt
-        ids2tags[cnt] = i
         cnt += 1
 
     f[u'主IPC分类号-小类'] = f[u'主IPC分类号-小类'].apply(lambda str_y: tags2ids[str_y[0]])
     y = f[u'主IPC分类号-小类'].values
 
+    ids2onehot = {}
+    j = 0
+    for i in tags:
+        temp = [0] * len(tags)
+        temp[j] = 1
+        ids2onehot[tags2ids[i]] = temp
+        j += 1
+
+    y_onehot = []
+    for i in range(len(y)):
+        y_onehot.append(ids2onehot[y[i]])
+
     print 'get y!'
-    return y, tags2ids, ids2tags
+    return y_onehot, tags2ids
 
 
 X = get_str_X()
 
 
-y, tags2ids, ids2tags = get_y()
+y, tags2ids = get_y()
 
-tfidf = TfidfVectorizer(max_features=75000)
+y = np.array(y)
+batch_size = 20
+tfidf = TfidfVectorizer()
 X_tfidf = tfidf.fit_transform(X)
 X_tfidf = X_tfidf.toarray()
-
 # print X_tfidf
+
 
 X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=33)
 
 
-lgb_train = lgb.Dataset(X_train, y_train)
-lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)
+print 'begin training...'
+model_input = Input(shape=(X_train.shape[1],))
+sentence = Dense(1000, activation='tanh')(model_input)
+sen2vec = Dense(200, activation='tanh')(sentence)
+model_output = Dense(len(tags2ids), activation='softmax')(sen2vec)
+model = Model(inputs=model_input, outputs=model_output)
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
+print 'end training!'
+print 'save model!'
+model.save('../model/TFIDFANNANNPC_model.h5')
+print 'save model down!'
 
-params = {
-    'task': 'train',
-    'boosting_type': 'gbdt',
-    'objective': 'multiclass',
-    'num_class': len(tags2ids),
-    'min_data_in_bin': 1,
-    'min_data': 1,
-    'num_leaves': 31,
-    'learning_rate': 0.1,
-    'feature_fraction': 1,
-    'verbose': 0
-}
-
-gbm = lgb.train(params, lgb_train, num_boost_round=500, valid_sets=lgb_eval, early_stopping_rounds=20)
-
-gbm.save_model('../model/LGBPC_model.txt')
+print 'predicting...'
+y_pred = model.predict(X_test)
+print 'predicted done'
 
 
-# yprob = gbm.predict(X_test).reshape(y_test.shape[0], len(tags2ids))
-yprob = gbm.predict(X_test)
+def check(a):
+    max_pos = -1
+    temp = -1
+    for i in range(len(a)):
+        if a[i] > temp:
+            temp = a[i]
+            max_pos = i
+    return max_pos
 
-ylabel = np.argmax(yprob, axis=1)
-error = sum( int(ylabel[i]) != y_test[i] for i in range(len(y_test))) / float(len(y_test))
-acc = 1. - error
-print ('predicting, classification acc=%f' % (acc))
+
+def cal_acc_test(y1, y2):
+    cnt = 0
+    for i in range(len(y1)):
+        a = check(y1[i])
+        if y2[i][a] == 1:
+            cnt += 1
+    return cnt*1./(len(y1)*1.)
 
 
-
-
+print cal_acc_test(y_pred, y_test)
 

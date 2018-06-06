@@ -211,11 +211,11 @@ def get_padding_X(sentmaxlen):
     return X, vecsize
 
 
-sent_maxlen = 256
+sent_maxlen = 200
 word_size = 200
 sent_size = 200
 sess_size = 200
-batch_size = 1000
+batch_size = 20
 
 
 X, vecsize = get_padding_X(sentmaxlen=sent_maxlen)
@@ -239,9 +239,7 @@ y_test = y[trainsize:]
 
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
-sentence = Dense(1, activation='tanh')(model_input)
-print sentence.shape
-sentence_oneline = Reshape((sent_maxlen,))(sentence)
+sentence_oneline = Reshape((-1,))(model_input)
 sentence2vec = Dense(sent_size, activation='tanh')(sentence_oneline)
 model_output = Dense(len(tags2ids), activation='softmax')(sentence2vec)
 # model_output = Dense(1)(sess2vec)
@@ -250,7 +248,7 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
 print 'end training!'
 print 'save model!'
-model.save('ANNPC_model.h5')
+model.save('../model/ANNPC_model.h5')
 print 'save model down!'
 
 print 'predicting...'

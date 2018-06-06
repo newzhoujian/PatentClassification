@@ -2,14 +2,22 @@
 # -*- coding:utf-8 -*-
 
 import pandas as pd
+import tensorflow as tf
+from itertools import chain
 import sys
 import numpy as np
 import jieba
-from sklearn.feature_extraction.text import TfidfVectorizer
-import lightgbm as lgb
-import random
+import keras
+import keras.backend as K
+from collections import defaultdict
+from gensim.models.word2vec import Word2Vec
+import gensim
+from keras.layers import Dense, Embedding, LSTM, TimeDistributed, Input, Bidirectional, GRU, recurrent, Reshape, Dropout
+from keras.models import Model
+from keras.optimizers import Adam
+from keras import regularizers
 from sklearn.model_selection import train_test_split
-from sklearn.decomposition import PCA
+from keras.models import load_model
 
 f = pd.read_excel('../data/1000.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
@@ -118,7 +126,7 @@ def get_str_X():
     print 'get stop word!'
     stopwordset = getstopwordset()
     print 'get down!'
-    tempX = u''
+    tempX = []
     X = []
     # sys.exit()
     for i in range(1, len(f[u'标题'])+1):
@@ -126,25 +134,42 @@ def get_str_X():
         for j in f[u'标题'][i]:
             isin = (j in stopwordset)
             if not isin:
-                tempX += j
-                tempX += u' '
+                tempX.append(j)
         for j in f[u'摘要'][i]:
             for k in j:
                 isin = (k in stopwordset)
                 if not isin:
-                    tempX += k
-                    tempX += u' '
+                    tempX.append(k)
 
         for j in f[u'首项权利要求'][i]:
             for k in j:
                 isin = (k in stopwordset)
                 if not isin:
-                    tempX += k
-                    tempX += u' '
+                    tempX.append(k)
         X.append(tempX)
-        tempX = u''
+        tempX = []
 
     return X
+
+
+def get_embedding_X():
+    X = get_str_X()
+    modelword2vec = Word2Vec.load('../word2vec/word2vec.model')
+    sent_X = []
+    fin_X = []
+    for i in X:
+        for j in i:
+            # print chars2ids[k]
+            tempword = gensim.utils.to_unicode(j)
+            if tempword in modelword2vec:
+                sent_X.append(np.array([w for w in modelword2vec[tempword]]))
+            else:
+                sent_X.append(np.array([0.] * modelword2vec.vector_size))
+        sent_X = np.array(sent_X)
+        fin_X.append(sent_X)
+        sent_X = []
+    print 'embedding down!'
+    return fin_X, modelword2vec.vector_size
 
 
 def get_y():
@@ -153,64 +178,97 @@ def get_y():
         tags.add(i[0])
 
     tags2ids = {}
-    ids2tags = {}
+
     cnt = 0
     for i in tags:
         tags2ids[i] = cnt
-        ids2tags[cnt] = i
         cnt += 1
 
     f[u'主IPC分类号-小类'] = f[u'主IPC分类号-小类'].apply(lambda str_y: tags2ids[str_y[0]])
     y = f[u'主IPC分类号-小类'].values
 
+    ids2onehot = {}
+    j = 0
+    for i in tags:
+        temp = [0] * len(tags)
+        temp[j] = 1
+        ids2onehot[tags2ids[i]] = temp
+        j += 1
+
+    y_onehot = []
+    for i in range(len(y)):
+        y_onehot.append(ids2onehot[y[i]])
+
     print 'get y!'
-    return y, tags2ids, ids2tags
+    return y_onehot, tags2ids
 
 
-X = get_str_X()
+def get_padding_X(sentmaxlen):
+    X, vecsize = get_embedding_X()
+    for i in range(len(X)):
+        if len(X[i]) >= sentmaxlen:
+            X[i] = X[i][:sentmaxlen]
+        else:
+            temp = np.array([np.array([0.] * vecsize)] * (sentmaxlen - len(X[i])))
+            X[i] = np.concatenate((temp, X[i]), axis=0)
+
+    print 'padding down!'
+    return X, vecsize
 
 
-y, tags2ids, ids2tags = get_y()
-
-tfidf = TfidfVectorizer(max_features=75000)
-X_tfidf = tfidf.fit_transform(X)
-X_tfidf = X_tfidf.toarray()
-
-# print X_tfidf
-
-X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=33)
+sent_maxlen = 200
+word_size = 200
+sent_size = 200
+sess_size = 200
+batch_size = 20
 
 
-lgb_train = lgb.Dataset(X_train, y_train)
-lgb_eval = lgb.Dataset(X_test, y_test, reference=lgb_train)
+X, vecsize = get_padding_X(sentmaxlen=sent_maxlen)
+y, tags2ids = get_y()
 
-params = {
-    'task': 'train',
-    'boosting_type': 'gbdt',
-    'objective': 'multiclass',
-    'num_class': len(tags2ids),
-    'min_data_in_bin': 1,
-    'min_data': 1,
-    'num_leaves': 31,
-    'learning_rate': 0.1,
-    'feature_fraction': 1,
-    'verbose': 0
-}
+n_class = len(tags2ids)
 
-gbm = lgb.train(params, lgb_train, num_boost_round=500, valid_sets=lgb_eval, early_stopping_rounds=20)
+y = np.array(y)
 
-gbm.save_model('../model/LGBPC_model.txt')
+X_word2vec = np.array([i for i in X])
+X_word2vec = np.reshape(X_word2vec, (len(X), -1, vecsize))
+print 'data and label convert down!'
+
+X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2, random_state=33)
+
+ANNPC_model = load_model('../model/ANNPC_model.h5')
+GRUPC_model = load_model('../model/GRUPC_model.h5')
+GRUGRUPC_model = load_model('../model/GRUGRUPC_model.h5')
+GRUCNNGRUPC_model = load_model('../model/GRUCNNGRU_model.h5')
+
+y_ANNPC = ANNPC_model.predict(X_test)
+y_GRUPC = GRUPC_model.predict(X_test)
+y_GRUGRUPC = GRUGRUPC_model.predict(X_test)
+y_GRUCNNGRUPC = GRUCNNGRUPC_model.predict(X_test)
+
+y_pred = y_ANNPC + y_GRUPC + y_GRUGRUPC + y_GRUCNNGRUPC
+
+def check(a):
+    max_pos = -1
+    temp = -1
+    for i in range(len(a)):
+        if a[i] > temp:
+            temp = a[i]
+            max_pos = i
+    return max_pos
 
 
-# yprob = gbm.predict(X_test).reshape(y_test.shape[0], len(tags2ids))
-yprob = gbm.predict(X_test)
+def cal_acc_test(y1, y2):
+    cnt = 0
+    for i in range(len(y1)):
+        a = check(y1[i])
+        if y2[i][a] == 1:
+            cnt += 1
+    return cnt*1./(len(y1)*1.)
 
-ylabel = np.argmax(yprob, axis=1)
-error = sum( int(ylabel[i]) != y_test[i] for i in range(len(y_test))) / float(len(y_test))
-acc = 1. - error
-print ('predicting, classification acc=%f' % (acc))
+print y_pred
 
-
+print cal_acc_test(y_pred, y_test)
 
 
 

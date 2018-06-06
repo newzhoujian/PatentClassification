@@ -310,7 +310,7 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 history = model.fit(X_word2vec, y, batch_size=batch_size, epochs=50)
 print 'end training!'
 print 'save model!'
-model.save('PatentClassification.h5')
+model.save('../model/PatentClassification.h5')
 print 'save model down!'
 
 

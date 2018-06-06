@@ -12,7 +12,7 @@ import keras.backend as K
 from collections import defaultdict
 from gensim.models.word2vec import Word2Vec
 import gensim
-from keras.layers import Dense, Input, GRU, Reshape, Conv2D, Dropout, MaxPool2D, Flatten
+from keras.layers import Dense, Embedding, LSTM, TimeDistributed, Input, Bidirectional, GRU, recurrent, Reshape, Dropout
 from keras.models import Model
 from keras.optimizers import Adam
 from keras import regularizers
@@ -153,7 +153,7 @@ def get_str_X():
 
 def get_embedding_X():
     X = get_str_X()
-    modelword2vec = Word2Vec.load('../word2vec/word2vecaddstopword.model')
+    modelword2vec = Word2Vec.load('../word2vec/word2vec.model')
     sent_X = []
     fin_X = []
     for i in X:
@@ -235,26 +235,20 @@ print 'data and label convert down!'
 
 X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2, random_state=33)
 
+
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
-sen2vec = GRU(sent_size, activation='tanh', return_sequences=True)(model_input)
-sen2vec = Reshape((sent_maxlen, sent_maxlen, 1))(sen2vec)
-sen2vec_cnn = Conv2D(filters=len(tags2ids), kernel_size=(3, 3), padding='valid', activation='tanh')(sen2vec)
-# sen2vec_cnn = Dropout(0.25)(sen2vec_cnn)
-# print sen2vec_cnn.shape
-sen2vec_pool = MaxPool2D(pool_size=(3, 3))(sen2vec_cnn)
-sen2vec_fatten = Flatten()(sen2vec_pool)
-sen2vec_fatten = Reshape((1, -1))(sen2vec_fatten)
-ses2vec = GRU(sess_size, return_sequences=False)(sen2vec_fatten)
-model_output = Dense(len(tags2ids), activation='softmax')(ses2vec)
+sen2vec = LSTM(sent_size, activation='tanh', return_sequences=False)(model_input)
+# sen2vec = Dropout(0.25)(sen2vec)
+sen2vec_dense = Dense(sess_size, activation='tanh')(sen2vec)
+model_output = Dense(len(tags2ids), activation='softmax')(sen2vec_dense)
 # model_output = Dense(1)(sess2vec)
 model = Model(inputs=model_input, outputs=model_output)
-# adam_my = Adam(lr=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-08)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
 print 'end training!'
 print 'save model!'
-model.save('GRUCNN_model.h5')
+model.save('../model/LSTMPC_model.h5')
 print 'save model down!'
 
 print 'predicting...'
