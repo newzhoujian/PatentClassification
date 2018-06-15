@@ -11,7 +11,8 @@ import random
 from sklearn.model_selection import train_test_split
 from sklearn.decomposition import PCA
 
-f = pd.read_excel('../data/1000.xlsx', header=0)
+jieba.load_userdict('../data/keyword.txt')
+f = pd.read_excel('../data/random1000.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
 # f = pd.read_csv('data/data.csv', header=None, sep=',')
 # f = open('data/smartPatent_20180512.xlsx', 'r')
@@ -172,11 +173,11 @@ X = get_str_X()
 
 y, tags2ids, ids2tags = get_y()
 
-tfidf = TfidfVectorizer(max_features=75000)
+tfidf = TfidfVectorizer()
 X_tfidf = tfidf.fit_transform(X)
 X_tfidf = X_tfidf.toarray()
 
-# print X_tfidf
+print X_tfidf.shape
 
 X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=33)
 

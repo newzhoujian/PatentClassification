@@ -14,7 +14,10 @@ from gensim.models.word2vec import Word2Vec
 import gensim
 from keras.layers import Dense, Embedding, LSTM, TimeDistributed, Input, Bidirectional, GRU, recurrent, Reshape
 from keras.models import Model
-f = pd.read_excel('../data/1000.xlsx', header=0)
+from sklearn.model_selection import train_test_split
+jieba.load_userdict('../data/keyword.txt')
+
+f = pd.read_excel('../data/new1000.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
 # f = pd.read_csv('data/data.csv', header=None, sep=',')
 # f = open('data/smartPatent_20180512.xlsx', 'r')
@@ -149,7 +152,7 @@ def get_str_X():
 
 def get_embedding_X():
     X = get_str_X()
-    modelword2vec = Word2Vec.load('../word2vec/word2vec.model')
+    modelword2vec = Word2Vec.load('../word2vec/word2vecaddstopword.model')
     sent_X = []
     fin_X = []
     for i in X:
@@ -229,19 +232,13 @@ X_word2vec = np.array([i for i in X])
 X_word2vec = np.reshape(X_word2vec, (len(X), -1, vecsize))
 print 'data and label convert down!'
 
-trainsize = int(len(X) * 0.8)
-testsize = len(X) - trainsize
-print trainsize
-X_train = X_word2vec[:trainsize]
-y_train = y[:trainsize]
-X_test = X_word2vec[trainsize:]
-y_test = y[trainsize:]
+X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2, random_state=33)
 
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
 sentence_oneline = Reshape((-1,))(model_input)
-sentence2vec = Dense(sent_size, activation='tanh')(sentence_oneline)
-model_output = Dense(len(tags2ids), activation='softmax')(sentence2vec)
+sen2vec = Dense(sent_size, activation='tanh')(sentence_oneline)
+model_output = Dense(len(tags2ids), activation='softmax')(sen2vec)
 # model_output = Dense(1)(sess2vec)
 model = Model(inputs=model_input, outputs=model_output)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])

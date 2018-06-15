@@ -238,7 +238,7 @@ X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2
 
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
-sen2vec = LSTM(sent_size, activation='tanh', return_sequences=False)(model_input)
+sen2vec = GRU(sent_size, activation='tanh', return_sequences=False)(model_input)
 # sen2vec = Dropout(0.25)(sen2vec)
 sen2vec_dense = Dense(sess_size, activation='tanh')(sen2vec)
 model_output = Dense(len(tags2ids), activation='softmax')(sen2vec_dense)
@@ -248,7 +248,7 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
 print 'end training!'
 print 'save model!'
-model.save('../model/LSTMPC_model.h5')
+model.save('../model/GRUANNPC_model.h5')
 print 'save model down!'
 
 print 'predicting...'

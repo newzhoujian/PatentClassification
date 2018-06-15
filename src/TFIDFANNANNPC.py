@@ -14,8 +14,8 @@ from keras.models import Model
 from keras import regularizers
 
 from sklearn.decomposition import PCA
-
-f = pd.read_excel('../data/1000.xlsx', header=0)
+jieba.load_userdict('../data/keyword.txt')
+f = pd.read_excel('../data/new1000.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
 # f = pd.read_csv('data/data.csv', header=None, sep=',')
 # f = open('data/smartPatent_20180512.xlsx', 'r')
@@ -201,8 +201,8 @@ X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, r
 print 'begin training...'
 model_input = Input(shape=(X_train.shape[1],))
 sentence = Dense(1000, activation='tanh')(model_input)
-sen2vec = Dense(200, activation='tanh')(sentence)
-model_output = Dense(len(tags2ids), activation='softmax')(sen2vec)
+sentence = Dense(200, activation='tanh')(sentence)
+model_output = Dense(len(tags2ids), activation='softmax')(sentence)
 model = Model(inputs=model_input, outputs=model_output)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)

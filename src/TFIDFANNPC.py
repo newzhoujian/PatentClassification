@@ -15,7 +15,8 @@ from keras import regularizers
 
 from sklearn.decomposition import PCA
 
-f = pd.read_excel('../data/1000.xlsx', header=0)
+jieba.load_userdict('../data/keyword.txt')
+f = pd.read_excel('../data/800200.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
 # f = pd.read_csv('data/data.csv', header=None, sep=',')
 # f = open('data/smartPatent_20180512.xlsx', 'r')
@@ -195,17 +196,22 @@ X_tfidf = X_tfidf.toarray()
 # print X_tfidf
 
 
-X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=33)
+#X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=33)
+trainlen = 800
+X_train = X_tfidf[:trainlen]
+X_test = X_tfidf[trainlen:]
+y_train = y[:trainlen]
+y_test = y[trainlen:]
 
 
-print 'begin training...'
+print 'begin training...800200'
 model_input = Input(shape=(X_train.shape[1],))
-sentence = Dense(200, activation='tanh')(model_input)
+sentence = Dense(200, activation='relu')(model_input)
 # sen2vec = Dropout(0.25)(sentence)
 model_output = Dense(len(tags2ids), activation='softmax')(sentence)
 model = Model(inputs=model_input, outputs=model_output)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
+history = model.fit(X_train, y_train, batch_size=batch_size, epochs=10)
 print 'end training!'
 print 'save model!'
 model.save('../model/TFIDFANNPC_model.h5')

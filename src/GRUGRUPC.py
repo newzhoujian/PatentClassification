@@ -17,8 +17,9 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras import regularizers
 from sklearn.model_selection import train_test_split
+jieba.load_userdict('../data/keyword.txt')
 
-f = pd.read_excel('../data/1000.xlsx', header=0)
+f = pd.read_excel('../data/random1000.xlsx', header=0)
 # f = pd.read_excel('../data/30.xlsx', header=0)
 # f = pd.read_csv('data/data.csv', header=None, sep=',')
 # f = open('data/smartPatent_20180512.xlsx', 'r')
@@ -153,7 +154,7 @@ def get_str_X():
 
 def get_embedding_X():
     X = get_str_X()
-    modelword2vec = Word2Vec.load('../word2vec/word2vec.model')
+    modelword2vec = Word2Vec.load('../word2vec/word2vecaddstopword.model')
     sent_X = []
     fin_X = []
     for i in X:
@@ -234,18 +235,25 @@ X_word2vec = np.reshape(X_word2vec, (len(X), -1, vecsize))
 print 'data and label convert down!'
 
 X_train, X_test, y_train, y_test = train_test_split(X_word2vec, y, test_size=0.2, random_state=33)
+'''
+X_train = X_word2vec[:800]
+X_test = X_word2vec[800:]
+y_train = y[:800]
+y_test = y[800:]
+'''
+
 
 
 print 'begin training...'
 model_input = Input(shape=(sent_maxlen, vecsize))
-sen2vec = GRU(sent_size, activation='tanh', return_sequences=True)(model_input)
+sen2vec = GRU(sent_size, activation='relu', return_sequences=True)(model_input)
 # sen2vec = Dropout(0.25)(sen2vec)
-ses2vec = GRU(sess_size, activation='tanh', return_sequences=False)(sen2vec)
+ses2vec = GRU(sess_size, activation='relu', return_sequences=False)(sen2vec)
 model_output = Dense(len(tags2ids), activation='softmax')(ses2vec)
 # model_output = Dense(1)(sess2vec)
 model = Model(inputs=model_input, outputs=model_output)
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-history = model.fit(X_train, y_train, batch_size=batch_size, epochs=20)
+history = model.fit(X_train, y_train, batch_size=batch_size, epochs=10)
 print 'end training!'
 print 'save model!'
 model.save('../model/GRUGRUPC_model.h5')
